@@ -1,0 +1,7 @@
+[package]
+name = "merrycron"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cron = "0.15.0"
