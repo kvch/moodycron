@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::error::Error;
 use std::str::FromStr;
 use std::sync::RwLock;
@@ -45,7 +46,7 @@ pub fn get_from_personality(personality: Personality) -> CronStats {
         Personality::Lazy => CronStats {
             stamina: RwLock::new(9),
             reflexes: 8,
-            dexterity: 6,
+            dexterity: 8,
         },
         Personality::Slow => CronStats {
             stamina: RwLock::new(10),
@@ -75,6 +76,6 @@ impl CronStats {
         return 10 - self.reflexes;
     }
     pub fn tries(&self) -> u16 {
-        return 10 - self.dexterity;
+        return max(10 - self.dexterity, 1);
     }
 }
