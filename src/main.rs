@@ -68,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             None => break,
         };
 
-        let cmds = scheduler.get_next_job(start_at);
+        let cmds = scheduler.get_next_cmd(start_at);
         let until = start_at - Utc::now();
         match until.to_std() {
             Ok(sleep_until) => thread::sleep(sleep_until),
