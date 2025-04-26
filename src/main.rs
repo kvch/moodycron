@@ -1,3 +1,4 @@
+use log::{error, info};
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::env;
 use std::path::Path;
@@ -20,56 +21,60 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut stats = stats::get_from_personality(personality);
     let mut scheduler = load_scheduler();
 
-    thread::scope(|s| {
-        s.spawn(|| {
-            let (tx, rx) = mpsc::channel();
+    env_logger::init();
+    info!("hallo, hallo");
 
-            // Automatically select the best implementation for your platform.
-            // You can also access each implementation directly e.g. INotifyWatcher.
-            let mut watcher = match RecommendedWatcher::new(tx, Config::default()) {
-                Ok(watcher) => watcher,
-                Err(_) => return,
-            };
+    let (scheduler_tx, scheduler_rx) = mpsc::channel();
+    thread::spawn(move || {
+        let (tx, rx) = mpsc::channel();
 
-            // Add a path to be watched. All files and directories at that path and
-            // below will be monitored for changes.
-            watcher.watch(Path::new("cron"), RecursiveMode::Recursive);
+        let mut watcher = match RecommendedWatcher::new(tx, Config::default()) {
+            Ok(watcher) => watcher,
+            Err(_) => return,
+        };
 
-            for res in rx {
-                match res {
-                    Ok(event) => match event.kind {
-                        EventKind::Modify(_) => {
-                            println!("reloaded");
-                            scheduler = load_scheduler();
-                            println!("{:?}", scheduler);
-                        }
-                        _ => println!("other"),
-                    },
-                    Err(error) => println!("Error: {error:?}"),
-                }
+        watcher
+            .watch(Path::new("cron"), RecursiveMode::Recursive)
+            .unwrap();
+
+        for res in rx {
+            match res {
+                Ok(event) => match event.kind {
+                    EventKind::Modify(_) | EventKind::Create(_) => {
+                        info!("reloading triggered");
+                        _ = scheduler_tx.send("reload");
+                    }
+                    _ => (),
+                },
+                Err(error) => error!("Error: {error:?}"),
             }
-        });
+        }
     });
-
-    println!("itt");
 
     loop {
         if stats.is_exhausted() {
-            println!("tired, bye");
+            info!("tired, bye");
             break;
         }
+        match scheduler_rx.try_recv() {
+            Ok(_) => {
+                scheduler = load_scheduler();
+                info!("reloaded");
+            }
+            _ => (),
+        };
         let start_at = match scheduler.next_time() {
             Some(start_at) => start_at,
             None => break,
         };
-        let until = start_at - Utc::now();
-        let sleep_until = match until.to_std() {
-            Ok(sleep_until) => sleep_until,
-            Err(_) => Duration::new(0, 0),
-        };
-        let cmds = scheduler.get_next_job(start_at);
 
-        thread::sleep(sleep_until);
+        let cmds = scheduler.get_next_job(start_at);
+        let until = start_at - Utc::now();
+        match until.to_std() {
+            Ok(sleep_until) => thread::sleep(sleep_until),
+            Err(_) => (),
+        };
+
         for cmd in cmds.iter() {
             thread::scope(|s| {
                 s.spawn(|| {
@@ -80,7 +85,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             return;
                         }
                         let cron_cmd_output = Command::new("sh").arg("-c").arg(&cmd).output();
-                        println!("{:?}", cron_cmd_output);
+                        info!("{:?}", cron_cmd_output);
                         stats.complete_task();
                     }
                 });

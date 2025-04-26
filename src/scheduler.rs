@@ -1,11 +1,13 @@
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
+#[derive(Debug)]
 pub struct Scheduler {
     starts: Vec<DateTime<Utc>>,
     jobs: HashMap<DateTime<Utc>, Vec<Job>>,
 }
 
+#[derive(Debug)]
 pub struct Job {
     schedule: cron::Schedule,
     cmd: String,

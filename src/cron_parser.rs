@@ -1,6 +1,5 @@
 use std::fs::File;
 use std::io::{self, BufRead};
-use std::str::FromStr;
 
 pub fn read_crontab() -> io::Result<io::Lines<io::BufReader<File>>> {
     let file = File::open("cron")?;
@@ -17,6 +16,7 @@ pub fn parse_line(cron_line: String) -> (String, String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[test]
     fn test_parse_line() {
