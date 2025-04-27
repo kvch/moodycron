@@ -1,5 +1,7 @@
 use log::{error, info};
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use sd_notify;
+use signal_hook::{consts::SIGHUP, iterator::Signals};
 use std::env;
 use std::path::Path;
 use std::process::Command;
@@ -24,7 +26,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     info!("hallo, hallo");
 
-    let (scheduler_tx, scheduler_rx) = mpsc::channel();
+    let (file_watcher_tx, scheduler_rx) = mpsc::channel();
+    let signal_tx = file_watcher_tx.clone();
+
     thread::spawn(move || {
         let (tx, rx) = mpsc::channel();
 
@@ -42,12 +46,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Ok(event) => match event.kind {
                     EventKind::Modify(_) | EventKind::Create(_) => {
                         info!("reloading triggered");
-                        _ = scheduler_tx.send("reload");
+                        _ = file_watcher_tx.send("reload");
                     }
                     _ => (),
                 },
                 Err(error) => error!("Error: {error:?}"),
             }
+        }
+    });
+
+    let mut signals = Signals::new([SIGHUP])?;
+    thread::spawn(move || {
+        for sig in signals.forever() {
+            info!("Received signal {:?}", sig);
+            _ = signal_tx.send("reload");
         }
     });
 
@@ -96,6 +108,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn load_scheduler() -> scheduler::Scheduler {
+    let _ = sd_notify::notify(true, &[sd_notify::NotifyState::Reloading]);
+
     let mut scheduler = scheduler::Scheduler::new();
     if let Ok(cron_lines) = cron_parser::read_crontab() {
         for cron_line in cron_lines.map_while(Result::ok) {
@@ -106,5 +120,8 @@ fn load_scheduler() -> scheduler::Scheduler {
             );
         }
     }
+
+    let _ = sd_notify::notify(true, &[sd_notify::NotifyState::Ready]);
+
     return scheduler;
 }
