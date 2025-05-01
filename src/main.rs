@@ -1,8 +1,8 @@
+use clap::Parser;
 use log::{error, info};
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use sd_notify;
 use signal_hook::{consts::SIGHUP, iterator::Signals};
-use std::env;
 use std::path::Path;
 use std::process::Command;
 use std::str::FromStr;
@@ -17,9 +17,14 @@ mod cron_parser;
 mod scheduler;
 mod stats;
 
+#[derive(Debug, Parser)]
+struct Args {
+    personality: String,
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = env::args().collect();
-    let personality = stats::Personality::from_str(&args[1])?;
+    let args: Args = Args::parse();
+    let personality = stats::Personality::from_str(&args.personality)?;
     let mut stats = stats::get_from_personality(personality);
     let mut scheduler = load_scheduler();
 
