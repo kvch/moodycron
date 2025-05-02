@@ -2,13 +2,13 @@ use clap::Parser;
 use log::{error, info};
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use sd_notify;
-use signal_hook::{consts::SIGHUP, iterator::Signals};
 use std::path::Path;
 use std::process::Command;
 use std::str::FromStr;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
+use tokio::signal::unix::{SignalKind, signal};
 
 use chrono::Utc;
 use cron::Schedule;
@@ -22,19 +22,18 @@ struct Args {
     personality: String,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Args = Args::parse();
     let personality = stats::Personality::from_str(&args.personality)?;
     let mut stats = stats::get_from_personality(personality);
     let mut scheduler = load_scheduler();
-
     env_logger::init();
     info!("hallo, hallo");
 
     let (file_watcher_tx, scheduler_rx) = mpsc::channel();
     let signal_tx = file_watcher_tx.clone();
-
-    thread::spawn(move || {
+    tokio::task::spawn(async move {
         let (tx, rx) = mpsc::channel();
 
         let mut watcher = match RecommendedWatcher::new(tx, Config::default()) {
@@ -60,10 +59,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    let mut signals = Signals::new([SIGHUP])?;
-    thread::spawn(move || {
-        for sig in signals.forever() {
-            info!("Received signal {:?}", sig);
+    tokio::task::spawn(async move {
+        let mut stream = signal(SignalKind::hangup()).unwrap();
+        loop {
+            stream.recv().await;
+            info!("Received signal SIGHUP");
             _ = signal_tx.send("reload");
         }
     });
@@ -115,7 +115,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn load_scheduler() -> scheduler::Scheduler {
     let _ = sd_notify::notify(true, &[sd_notify::NotifyState::Reloading]);
 
-    let mut scheduler = scheduler::Scheduler::new();
+    let mut scheduler = scheduler::Scheduler::default();
     if let Ok(cron_lines) = cron_parser::read_crontab() {
         for cron_line in cron_lines.map_while(Result::ok) {
             let (schedule_expression, cmd_expression) = cron_parser::parse_line(cron_line);

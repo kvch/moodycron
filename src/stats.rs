@@ -3,11 +3,13 @@ use std::error::Error;
 use std::str::FromStr;
 use std::sync::RwLock;
 
+#[derive(Default)]
 pub enum Personality {
     Eager,
     Energetic,
     Lazy,
     Slow,
+    #[default]
     Tired,
 }
 

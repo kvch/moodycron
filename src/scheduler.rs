@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Scheduler {
     starts: Vec<DateTime<Utc>>,
     jobs: HashMap<DateTime<Utc>, Vec<Job>>,
@@ -14,7 +14,7 @@ struct Job {
 }
 
 impl Scheduler {
-    pub fn new() -> Scheduler {
+    pub fn default() -> Scheduler {
         return Scheduler {
             starts: Vec::<DateTime<Utc>>::new(),
             jobs: HashMap::new(),

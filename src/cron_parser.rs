@@ -8,7 +8,13 @@ pub fn read_crontab() -> io::Result<io::Lines<io::BufReader<File>>> {
 
 pub fn parse_line(cron_line: String) -> (String, String) {
     let mut cron_expression: Vec<&str> = (&cron_line).splitn(7, " ").collect();
-    let cmd_expression = cron_expression.pop().unwrap();
+    let cmd_expression = match cron_expression.pop() {
+        Some(cmd_expression) => cmd_expression,
+        None => {
+            eprintln!("failed to parse line from cron file");
+            return (String::new(), String::new());
+        }
+    };
     let schedule_expression = cron_expression.into_iter().collect::<String>();
     return (schedule_expression, cmd_expression.to_string());
 }
