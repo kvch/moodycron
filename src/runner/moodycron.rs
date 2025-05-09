@@ -1,4 +1,4 @@
-use log::{error, info};
+use log::{debug, error, info};
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use sd_notify;
 use std::path::Path;
@@ -8,14 +8,15 @@ use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::Duration;
-use tokio::signal::unix::{SignalKind, signal};
 
 use chrono::Utc;
 use cron::Schedule;
+use tokio::signal::unix::{SignalKind, signal};
 
-use crate::moodycron::cron_parser;
-use crate::moodycron::scheduler;
-use crate::moodycron::stats;
+use crate::dreams::Dreamer;
+use crate::runner::cron_parser;
+use crate::runner::scheduler;
+use crate::runner::stats;
 
 struct ReloadSchedulerMessage {}
 
@@ -101,8 +102,11 @@ impl App {
 
         loop {
             if self.stats.is_exhausted() {
-                info!("tired, bye");
-                break;
+                info!("tired, good night");
+                thread::sleep(Duration::from_millis(5000));
+                self.stats.recover();
+                info!("good morning");
+                dream();
             }
             match self.scheduler_reload_trigger_rx.try_recv() {
                 Ok(_) => {
@@ -133,7 +137,7 @@ impl App {
                                 return;
                             }
                             let cron_cmd_output = Command::new("sh").arg("-c").arg(&cmd).output();
-                            info!("{:?}", cron_cmd_output);
+                            debug!("{:?}", cron_cmd_output);
                             self.stats.complete_task();
                         }
                     });
@@ -142,3 +146,13 @@ impl App {
         }
     }
 }
+
+#[cfg(feature = "dreams")]
+fn dream() {
+    let dreamer = Dreamer::new();
+    info!("i had a dream");
+    info!("{}", dreamer.dream());
+}
+
+#[cfg(not(feature = "dreams"))]
+fn dream() {}

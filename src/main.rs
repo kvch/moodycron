@@ -1,8 +1,8 @@
 use clap::Parser;
 use std::str::FromStr;
 
-use moodycron::moodycron::App;
-use moodycron::moodycron::Personality;
+use moodycron::runner::App;
+use moodycron::runner::Personality;
 
 #[derive(Debug, Parser)]
 struct Args {
