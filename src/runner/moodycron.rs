@@ -13,7 +13,9 @@ use chrono::Utc;
 use cron::Schedule;
 use tokio::signal::unix::{SignalKind, signal};
 
+#[cfg(feature = "dreams")]
 use crate::dreams::Dreamer;
+
 use crate::runner::cron_parser;
 use crate::runner::scheduler;
 use crate::runner::stats;
@@ -150,8 +152,8 @@ impl App {
 #[cfg(feature = "dreams")]
 fn dream() {
     let dreamer = Dreamer::new();
-    info!("i had a dream");
-    info!("{}", dreamer.dream());
+    let dream = dreamer.dream();
+    info!("{}", dream);
 }
 
 #[cfg(not(feature = "dreams"))]
